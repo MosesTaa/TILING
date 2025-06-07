@@ -70,7 +70,17 @@
       border-radius: 5px;
       white-space: pre-wrap;
     }
-  </style>
+  
+.watermark {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  opacity: 0.4;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+}
+</style>
 </head>
 <body>
   <div class="container">
@@ -181,5 +191,6 @@
       doc.save("tile_estimate.pdf");
     }
   </script>
+<div class="watermark">© Moses Ntella | Demo Version</div>
 </body>
 </html>
