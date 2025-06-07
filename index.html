@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tiling Estimator</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 800px;
+      width: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+      background-color: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    }
+
+    input, select, button {
+      background-color: #2a2a2a;
+      color: #fff;
+      border: 1px solid #444;
+      padding: 8px;
+      margin: 4px 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+
+    .group {
+      margin-bottom: 20px;
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    @media (min-width: 600px) {
+      .button-group {
+        flex-direction: row;
+      }
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 28px;
+    }
+
+    pre {
+      background-color: #1e1e1e;
+      padding: 10px;
+      border-radius: 5px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>TILING ESTIMATOR</h2>
+
+    <div class="group">
+      <label for="unit">Select Unit:</label>
+      <select id="unit">
+        <option value="meters" selected>Meters</option>
+        <option value="feet">Feet</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <label for="length">Surface Length:</label>
+      <input type="number" id="length" step="any">
+
+      <label for="width">Surface Width:</label>
+      <input type="number" id="width" step="any">
+    </div>
+
+    <div class="group">
+      <label for="tileLength">Tile Length:</label>
+      <input type="number" id="tileLength" step="any">
+
+      <label for="tileWidth">Tile Width:</label>
+      <input type="number" id="tileWidth" step="any">
+
+      <label for="groutSize" style="margin-bottom: 6px;">Gap Size:</label>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <div style="display: flex; gap: 6px; align-items: center; flex: 1;">
+        <select id="groutUnit" style="flex: 1; min-width: 100px;">
+          <option value="cm" selected>centimeters</option>
+          <option value="in">inches</option>
+        </select>
+      </div>
+      <span style="font-size: 0.85em;">tile grout spacing, use negative value for overlaps.</span>
+    </div>
+    <input type="number" id="groutSize" step="any" value="0">
+
+    <label for="tilesPerBox">Tiles Per Box:</label>
+      <input type="number" id="tilesPerBox">
+    </div>
+
+    <div class="button-group">
+      <button onclick="calculateTiles()">Calculate</button>
+      <button onclick="exportPDF()">Export as PDF</button>
+    </div>
+
+    <pre id="result"></pre>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const FEET_TO_METERS = 0.3048;
+
+    function calculateTiles() {
+      const unit = document.getElementById('unit').value;
+      let surfaceLength = parseFloat(document.getElementById('length').value);
+      let surfaceWidth = parseFloat(document.getElementById('width').value);
+      let tileLength = parseFloat(document.getElementById('tileLength').value);
+      let tileWidth = parseFloat(document.getElementById('tileWidth').value);
+      const tilesPerBox = parseInt(document.getElementById('tilesPerBox').value);
+      const result = document.getElementById('result');
+      result.textContent = '';
+
+      if ([surfaceLength, surfaceWidth, tileLength, tileWidth, tilesPerBox].some(v => isNaN(v) || v <= 0)) {
+        result.textContent = 'Please enter valid positive numbers for all fields.';
+        return;
+      }
+
+      if (unit === 'feet') {
+        surfaceLength *= FEET_TO_METERS;
+        surfaceWidth *= FEET_TO_METERS;
+        tileLength *= FEET_TO_METERS;
+        tileWidth *= FEET_TO_METERS;
+      }
+
+      const areaToCover = surfaceLength * surfaceWidth;
+      const tileArea = tileLength * tileWidth;
+      const groutSize = parseFloat(document.getElementById('groutSize').value) || 0;
+    const groutUnit = document.getElementById('groutUnit').value;
+    let groutConverted = groutSize;
+    if (groutUnit === 'cm') groutConverted /= 100;
+    if (groutUnit === 'in') groutConverted *= 0.0254;
+    const adjustedTileLength = tileLength + groutConverted;
+    const adjustedTileWidth = tileWidth + groutConverted;
+    const adjustedTileArea = adjustedTileLength * adjustedTileWidth;
+    const totalTilesNeeded = Math.ceil((areaToCover / adjustedTileArea) * 1.10); // includes 10% waste
+      const boxesNeeded = Math.ceil(totalTilesNeeded / tilesPerBox);
+
+      let output = `Surface Area: ${areaToCover.toFixed(2)} m²\n`;
+      output += `Tile Area (with grout): ${adjustedTileArea.toFixed(4)} m²\n` + `Tile Size + Grout: ${adjustedTileLength.toFixed(3)}m x ${adjustedTileWidth.toFixed(3)}m\n`;
+      output += `Total Tiles Needed (incl. 10% waste): ${totalTilesNeeded}\n`;
+      output += `Boxes Required: ${boxesNeeded}`;
+
+      result.textContent = output;
+    }
+
+    async function exportPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const content = document.getElementById("result").textContent;
+      doc.setFont("Courier", "normal");
+      doc.setFontSize(12);
+      const lines = doc.splitTextToSize(content, 180);
+      doc.text(lines, 10, 10);
+      doc.save("tile_estimate.pdf");
+    }
+  </script>
+</body>
+</html>
